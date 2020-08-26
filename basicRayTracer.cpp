@@ -118,7 +118,7 @@ Color traceRay(Vec o, Vec d, float min_t, float max_t){
 }
 
 int main(){
-    ofstream render("./out.ppm", ios::out | ios::binary);
+    ofstream render("./imgOut.ppm", ios::out | ios::binary);
     render<<"P3"<<endl;
     render<<w<<" "<<h<<endl;
     render<<"255"<<endl;
