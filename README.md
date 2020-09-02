@@ -2,4 +2,5 @@
 
 Learning and practicing the Ray Tracing Algorithm.
 
-Current progress:
+Current progress:<br>
+![](res/res.png "Current Progress")
