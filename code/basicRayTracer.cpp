@@ -143,9 +143,9 @@ Vec cameraToViewport(int x , int y){
 
 
 Sphere spheres[] =  {
-                        Sphere(1.0, Color(255, 0, 0), Vec(0, -2.0, 4)), 
-                        Sphere(1.0, Color(0, 0, 255), Vec(2, 1, 4)),
-                        Sphere(500.0, Color(0, 255, 0), Vec(0, -510, 0))
+                        Sphere(1.0, Color(255, 0, 0), Vec(-0.5, -1.0, 5)), 
+                        Sphere(1.0, Color(0, 0, 255), Vec(1.0, -0.5, 5)),
+                        Sphere(500.0, Color(0, 255, 0), Vec(0, -501, 0))
                     };
 
 Light lights[] = {
