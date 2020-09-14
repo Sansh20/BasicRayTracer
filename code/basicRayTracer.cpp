@@ -54,6 +54,12 @@ class Vec{
         auto length(){
             return sqrt(x*x+y*y+z*z);
         }
+
+};
+
+Vec unitVector(Vec a){
+    auto magnitude = a.length();
+    return Vec(a.x*(1/magnitude), a.y*(1/magnitude), a.z*(1/magnitude));
 };
 
 class Light{
@@ -74,9 +80,9 @@ class Light{
 
 class Color{
     public:
-        int r; int g; int b;
+        float r; float g; float b;
         Color(){
-            r = 255; g = 255; b = 255;
+            r = 1.0; g = 1.0; b = 1.0;
         };
         Color(int red, int green, int blue){
             r = red; g = green; b = blue; 
@@ -143,9 +149,9 @@ Vec cameraToViewport(int x , int y){
 
 
 Sphere spheres[] =  {
-                        Sphere(1.0, Color(255, 0, 0), Vec(-0.5, -1.0, 5)), 
-                        Sphere(1.0, Color(0, 0, 255), Vec(1.0, -0.5, 5)),
-                        Sphere(500.0, Color(0, 255, 0), Vec(0, -501, 0))
+                        Sphere(1.0, Color(1.0, 0, 0), Vec(-0.5, -1.0, 5)), 
+                        Sphere(1.0, Color(0, 0, 1.0), Vec(1.0, -0.5, 5)),
+                        Sphere(500.0, Color(0, 1.0, 0), Vec(0, -501, 0))
                     };
 
 Light lights[] = {
@@ -200,8 +206,9 @@ Color traceRay(Vec o, Vec d, float min_t, float max_t){
     }
 
     if(!sph){
-        float t =  0.5*(d.y + 1.0);
-        return Color(255, 255, 255)*(1.0-t) + Color(127, 178, 255)*t;
+        Vec uDirection = unitVector(d);
+        float t =  0.5*(uDirection.y + 1.0);
+        return (Color(1.0, 1.0, 1.0)*(1.0-t)) + (Color(0.5, 0.9, 1.0)*t);
     }
     else{
         Vec P = o + (d*closest_t);
@@ -220,7 +227,7 @@ int main(){
         for(int x = -w/2; x<w/2; x++){
             Vec dir = cameraToViewport(x, y);
             Color color = traceRay(cameraPos, dir, 1.0, numeric_limits<float>::infinity());
-            render<< int(color.r)<< ' ' <<int(color.g)<< ' ' << int(color.b)<<endl;
+            render<< int(255.999*color.r)<< ' ' <<int(255.999*color.g)<< ' ' << int(255.999*color.b)<<endl;
         }
     }
     return 0;
