@@ -14,13 +14,14 @@ float w = 500.0;
 
 class Vec{
     public:
-        float x; float y; float z;
+        float x, y, z;
         Vec(){
             x = 0; y = 0; z = 0;
         };
         Vec(float a, float b, float c){
             x = a; y = b; z = c;
         }
+        Vec operator - (){return Vec(-x, -y, -z);};
         Vec operator - (Vec const obj1){
             Vec obj2;
             obj2.x = x - obj1.x;
@@ -54,12 +55,6 @@ class Vec{
         auto length(){
             return sqrt(x*x+y*y+z*z);
         }
-
-};
-
-Vec unitVector(Vec a){
-    auto magnitude = a.length();
-    return Vec(a.x*(1/magnitude), a.y*(1/magnitude), a.z*(1/magnitude));
 };
 
 class Light{
@@ -108,9 +103,10 @@ class Sphere{
         float rad;
         Color col;
         Vec cen;
+        int spec;
         Sphere() {};
-        Sphere(float radius, Color color, Vec center){
-            rad = radius; col = color; cen = center;
+        Sphere(float radius, Color color, Vec center, int specular){
+            rad = radius; col = color; cen = center; spec = specular;
         };
 
         float* interesectRay(Vec origin, Vec dir){
@@ -128,8 +124,15 @@ class Sphere{
             
             t[0] = (-k2 + sqrt(discr)) / (2*k1);
             t[1] = (-k2 - sqrt(discr)) / (2*k1);
-
             return t;
+        }
+
+        Sphere operator = (Sphere obj1){
+            rad = obj1.rad;
+            col = obj1.col;
+            cen = obj1.cen;
+            spec = obj1.spec;
+            return *this;
         }
         bool operator==(Sphere obj1){
             return (rad==0);
@@ -149,18 +152,42 @@ Vec cameraToViewport(int x , int y){
 
 
 Sphere spheres[] =  {
-                        Sphere(1.0, Color(1.0, 0, 0), Vec(-0.5, -1.0, 5)), 
-                        Sphere(1.0, Color(0, 0, 1.0), Vec(1.0, -0.5, 5)),
-                        Sphere(500.0, Color(0, 1.0, 0), Vec(0, -501, 0))
+                        Sphere(1.0, Color(1.0, 0, 0), Vec(-1.0, 0.0, 5), -1), 
+                        Sphere(1.0, Color(0, 0, 1.0), Vec(1.0, 0.0, 5), 1000),
+                        Sphere(500.0, Color(0, 1.0, 0), Vec(0, -501, 0), -1) 
                     };
 
 Light lights[] = {
                     Light(AMBIENT, 0.2),
-                    Light(POINT, 0.6, Vec(2, 1, 0)),
-                    Light(DIRECTIONAL, 0.2, Vec(1, 4, 4))
+                    Light(POINT, 0.6, Vec(1, 1, 0)),
+                    Light(DIRECTIONAL, 0.2, Vec(1, 2, 2))
                  };
 
-auto computeLighting(Vec P, Vec N){
+struct sphInfo{
+    int index;
+    float t;
+};
+auto closestSphereHit(Vec o, Vec d, float min_t, float max_t){
+    float closest_t = numeric_limits<float>::infinity();
+    int closestSphereIndex = -1;
+
+    for(int i = 0; i<3; i++){
+        float* ts = spheres[i].interesectRay(o, d);
+        if(ts[0]<closest_t && ts[0]>min_t && ts[0]<max_t){
+            closest_t = ts[0];
+            closestSphereIndex = i;
+        }
+        if(ts[1]<closest_t && ts[1]>min_t && ts[1]<max_t){
+            closest_t = ts[1];
+            closestSphereIndex = i;
+        }
+    }
+    sphInfo sph = {closestSphereIndex, closest_t};
+
+    return sph;
+};
+
+auto computeLighting(Vec P, Vec N, Vec V, int s){
     auto intensity = 0.0;
     for(int i = 0; i<3; i++){
         if(lights[i].type==AMBIENT){
@@ -168,15 +195,32 @@ auto computeLighting(Vec P, Vec N){
         }
         else{
             Vec L;
+            float t_max;
             if(lights[i].type==POINT){
                 L = lights[i].position;
+                t_max = 1;
             }
             else{
                 L = lights[i].position;
+                t_max = numeric_limits<float>::infinity();
             }
+
+            sphInfo sph = closestSphereHit(P, L, 0.001, t_max);
+            if(sph.index!=-1){
+                continue;
+            }
+            
             auto nl = L*N;
             if(nl>0){
                 intensity += lights[i].intensity*nl/(N.length()*L.length());
+            }
+
+            if(s!=-1){
+                Vec R = (N*2)*nl -L; 
+                auto rv = R*V;
+                if(rv>0){
+                    intensity += lights[i].intensity*pow(rv/(R.length()*V.length()), (float)(s));
+                }
             }
         }
     }
@@ -184,38 +228,15 @@ auto computeLighting(Vec P, Vec N){
 }
 
 Color traceRay(Vec o, Vec d, float min_t, float max_t){
-    float closest_t = numeric_limits<float>::infinity();
-    bool sph = false;
-    Vec sphCen;
-    Color sphereCol;
-
-    for(int i = 0; i<3; i++){
-        float* ts = spheres[i].interesectRay(o, d);
-        if(ts[0]<closest_t && ts[0]>min_t && ts[0]<max_t){
-            closest_t = ts[0];
-            sph = true;
-            sphereCol = spheres[i].col;
-            sphCen = spheres[i].cen;
-        }
-        if(ts[1]<closest_t && ts[1]>min_t && ts[1]<max_t){
-            closest_t = ts[1];
-            sph = true;
-            sphereCol = spheres[i].col;
-            sphCen = spheres[i].cen;
-        }
+    sphInfo sph = closestSphereHit(o, d, min_t, max_t);
+    if(sph.index<0){
+        float t =  0.5*(d.y + 1.0);
+        return Color(1.0, 1.0, 1.0)*(1.0-t) + Color(0.4, 0.7, 1.0)*t;
     }
-
-    if(!sph){
-        Vec uDirection = unitVector(d);
-        float t =  0.5*(uDirection.y + 1.0);
-        return (Color(1.0, 1.0, 1.0)*(1.0-t)) + (Color(0.5, 0.9, 1.0)*t);
-    }
-    else{
-        Vec P = o + (d*closest_t);
-        Vec N = P - sphCen;
-        N = N*(1.0/N.length());
-        return sphereCol*computeLighting(P,N);
-    }
+    Vec P = o + (d*sph.t);
+    Vec N = P - spheres[sph.index].cen;
+    N = N*(1.0/N.length());
+    return spheres[sph.index].col*computeLighting(P, N, -d, spheres[sph.index].spec);
 };
 
 int main(){
