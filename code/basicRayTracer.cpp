@@ -6,6 +6,7 @@
 #define AMBIENT  0
 #define POINT 1
 #define DIRECTIONAL 2
+#define recursion_depth 3
 
 using namespace std;
 
@@ -104,9 +105,10 @@ class Sphere{
         Color col;
         Vec cen;
         int spec;
+        float ref;
         Sphere() {};
-        Sphere(float radius, Color color, Vec center, int specular){
-            rad = radius; col = color; cen = center; spec = specular;
+        Sphere(float radius, Color color, Vec center, int specular, float reflective){
+            rad = radius; col = color; cen = center; spec = specular; ref = reflective;
         };
 
         float* interesectRay(Vec origin, Vec dir){
@@ -152,9 +154,9 @@ Vec cameraToViewport(int x , int y){
 
 
 Sphere spheres[] =  {
-                        Sphere(1.0, Color(1.0, 0, 0), Vec(-1.0, 0.0, 5), -1), 
-                        Sphere(1.0, Color(0, 0, 1.0), Vec(1.0, 0.0, 5), 1000),
-                        Sphere(500.0, Color(0, 1.0, 0), Vec(0, -501, 0), -1) 
+                        Sphere(1.0, Color(1.0, 0, 0), Vec(-1.0, 0.0, 5), -1, 0.0), 
+                        Sphere(1.0, Color(0, 0, 1.0), Vec(1.0, 0.0, 5), 1000, 0.2),
+                        Sphere(500.0, Color(0, 1.0, 0), Vec(0, -501, 0), -1, 0.3) 
                     };
 
 Light lights[] = {
@@ -227,16 +229,29 @@ auto computeLighting(Vec P, Vec N, Vec V, int s){
     return intensity;
 }
 
-Color traceRay(Vec o, Vec d, float min_t, float max_t){
+
+Color traceRay(Vec o, Vec d, float min_t, float max_t, int depth){
     sphInfo sph = closestSphereHit(o, d, min_t, max_t);
     if(sph.index<0){
         float t =  0.5*(d.y + 1.0);
         return Color(1.0, 1.0, 1.0)*(1.0-t) + Color(0.4, 0.7, 1.0)*t;
     }
+    Sphere closestSphere = spheres[sph.index];
     Vec P = o + (d*sph.t);
-    Vec N = P - spheres[sph.index].cen;
+    Vec N = P - closestSphere.cen;
     N = N*(1.0/N.length());
-    return spheres[sph.index].col*computeLighting(P, N, -d, spheres[sph.index].spec);
+    Color local_color = closestSphere.col*computeLighting(P, N, -d, closestSphere.spec);
+    float r = closestSphere.ref;
+    if (depth<=0 || r<=0)
+    {
+        return local_color;
+    }
+    
+    Vec R = ((N*(-d*N))*2)-(-d);
+    
+    Color reflected_color = traceRay(P, R, 0.001, numeric_limits<float>::infinity(), depth-1);
+
+    return local_color*(1-r) + reflected_color*r;
 };
 
 int main(){
@@ -247,7 +262,7 @@ int main(){
     for(int y = h/2; y>-h/2; y--){
         for(int x = -w/2; x<w/2; x++){
             Vec dir = cameraToViewport(x, y);
-            Color color = traceRay(cameraPos, dir, 1.0, numeric_limits<float>::infinity());
+            Color color = traceRay(cameraPos, dir, 0.001, numeric_limits<float>::infinity(), recursion_depth);
             render<< int(255.999*color.r)<< ' ' <<int(255.999*color.g)<< ' ' << int(255.999*color.b)<<endl;
         }
     }
